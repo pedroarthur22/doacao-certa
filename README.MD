@@ -1,31 +1,14 @@
-# 📱 Doação Certa
+# Doação Certa
 
-O **Doação Certa** é um aplicativo mobile desenvolvido com React Native e Expo com o objetivo de facilitar e organizar a doação de agasalhos e roupas para quem mais precisa.
+Aplicativo mobile desenvolvido em React Native com Expo, integrado a uma API REST (Node.js e Express) e base de dados MySQL.
 
----
-
-## 🚀 Funcionalidades da Entrega 1
-
-- **Estruturação Inicial do Projeto:** Organização de pastas (`src/screens`, `src/navigation`).
-- **Navegação Funcional:** Configuração do React Navigation para transição entre telas.
-- **Telas Desenvolvidas:**
-  - **Home (`HomeScreen`):** Tela principal com boas-vindas e opções do sistema.
-  - **Detalhes (`DetailsScreen`):** Apresentação das informações sobre pontos de coleta e doações.
-  - **Cadastro (`RegisterScreen`):** Formulário inicial para cadastro de doadores/itens.
-
----
+## 🚀 Progresso da Entrega 2
+- **Modelagem de Dados:** Criação da base de dados `doacao_certa` e tabela `itens_doacao` no MySQL[cite: 7].
+- **API REST (Back-end):** Configuração do servidor em Node.js com Express, utilizando `mysql2` para gerir conexões e rotas `GET` e `POST` para os itens[cite: 7].
+- **Integração Front-end:** Conexão entre o aplicativo React Native e a API utilizando o método `fetch()`[cite: 7].
 
 ## 🛠️ Tecnologias Utilizadas
-
-- **React Native**
-- **Expo SDK**
-- **React Navigation (Native Stack)**
-- **JavaScript / Node.js**
-
----
-
-## 📦 Como Executar o Projeto
-
-1. **Clone o repositório:**
-   ```bash
-   git clone [https://github.com/pedroarthur22/doacao-certa.git](https://github.com/pedroarthur22/doacao-certa.git)
+- React Native / Expo[cite: 3]
+- Node.js & Express[cite: 3]
+- MySQL & MySQL2[cite: 3]
+- Git & GitHub[cite: 3]
