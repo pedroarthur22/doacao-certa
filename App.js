@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Alert, ScrollView, Modal, Platform } from 'react-native';
 
+// ⚠️ SUBSTITUA PELO LINK DA SUA API NA NUVEM (ex: 'https://doacaocerta.up.railway.app') ANTES DE GERAR O APK
+const API_URL = 'http://localhost:3000';
+
 export default function App() {
   const [token, setToken] = useState(null);
   const [rotaAuth, setRotaAuth] = useState('login');
@@ -15,6 +18,10 @@ export default function App() {
   // CRUD & Dados
   const [itens, setItens] = useState([]);
   const [stats, setStats] = useState({ usuarios: 0, totalItens: 0, disponiveis: 0, pendentes: 0 });
+
+  // Estados para Pesquisa e Filtros no Catálogo
+  const [termoPesquisa, setTermoPesquisa] = useState('');
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState('Todas');
 
   // Estado para o "Zoom" / Detalhe e Edição do Item
   const [itemSelecionado, setItemSelecionado] = useState(null);
@@ -39,7 +46,7 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
-      const response = await fetch('http://localhost:3000/login', {
+      const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, senha })
@@ -62,7 +69,7 @@ export default function App() {
   const handleRegister = async () => {
     try {
       const tipoUsuario = email.toLowerCase().includes('admin') ? 'admin' : 'comum';
-      const response = await fetch('http://localhost:3000/register', {
+      const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome, email, senha, tipo: tipoUsuario })
@@ -82,7 +89,7 @@ export default function App() {
 
   const buscarItens = async () => {
     try {
-      const response = await fetch('http://localhost:3000/itens');
+      const response = await fetch(`${API_URL}/itens`);
       const data = await response.json();
       setItens(data);
     } catch (error) {
@@ -92,7 +99,7 @@ export default function App() {
 
   const buscarStats = async (authToken) => {
     try {
-      const response = await fetch('http://localhost:3000/admin/stats', {
+      const response = await fetch(`${API_URL}/admin/stats`, {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       const data = await response.json();
@@ -108,7 +115,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch('http://localhost:3000/itens', {
+      const response = await fetch(`${API_URL}/itens`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -136,7 +143,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:3000/itens/${itemSelecionado.id}`, {
+      const response = await fetch(`${API_URL}/itens/${itemSelecionado.id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -160,7 +167,7 @@ export default function App() {
 
   const alterarStatusItem = async (id, novoStatus) => {
     try {
-      const response = await fetch(`http://localhost:3000/itens/${id}/status`, {
+      const response = await fetch(`${API_URL}/itens/${id}/status`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -181,7 +188,7 @@ export default function App() {
 
   const executarExclusaoAPI = async (id) => {
     try {
-      const response = await fetch(`http://localhost:3000/itens/${id}`, {
+      const response = await fetch(`${API_URL}/itens/${id}`, {
         method: 'DELETE',
         headers: { 
           'Content-Type': 'application/json',
@@ -229,6 +236,16 @@ export default function App() {
     setModoEdicao(false);
     setModalVisivel(true);
   };
+
+  // Filtragem inteligente de itens para a aba de Doações
+  const itensFiltrados = itens.filter(item => {
+    const matchTermo = item.titulo.toLowerCase().includes(termoPesquisa.toLowerCase()) ||
+                      item.descricao.toLowerCase().includes(termoPesquisa.toLowerCase());
+    const matchCategoria = categoriaSelecionada === 'Todas' || item.categoria === categoriaSelecionada;
+    return matchTermo && matchCategoria;
+  });
+
+  const categoriasDisponiveis = ['Todas', ...new Set(itens.map(i => i.categoria || 'Geral'))];
 
   useEffect(() => { buscarItens(); }, []);
 
@@ -322,11 +339,34 @@ export default function App() {
 
         {abaAtiva === 'disponiveis' && (
           <View>
-            <Text style={styles.sectionTitle}>Catálogo Geral (Toque num item para ver detalhes)</Text>
-            {itens.length === 0 ? (
-              <Text style={styles.emptyText}>Nenhuma doação cadastrada no momento.</Text>
+            <Text style={styles.sectionTitle}>Catálogo de Doações</Text>
+            
+            {/* Barra de Pesquisa */}
+            <TextInput 
+              style={styles.inputSearch} 
+              placeholder="🔍 Pesquisar por título ou descrição..." 
+              value={termoPesquisa}
+              onChangeText={setTermoPesquisa}
+            />
+
+            {/* Filtros por Categoria */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+              {categoriasDisponiveis.map((cat, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={[styles.filterChip, categoriaSelecionada === cat && styles.filterChipActive]}
+                  onPress={() => setCategoriaSelecionada(cat)}
+                >
+                  <Text style={[styles.filterChipText, categoriaSelecionada === cat && styles.filterChipTextActive]}>{cat}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Listagem Filtrada */}
+            {itensFiltrados.length === 0 ? (
+              <Text style={styles.emptyText}>Nenhum item encontrado com esses critérios.</Text>
             ) : (
-              itens.map(item => (
+              itensFiltrados.map(item => (
                 <TouchableOpacity key={item.id} style={styles.cardItem} onPress={() => abrirDetalhesItem(item)}>
                   <View style={styles.rowBetween}>
                     <View style={styles.badgeCategoria}><Text style={styles.badgeText}>{item.categoria || 'Geral'}</Text></View>
@@ -497,7 +537,14 @@ const styles = StyleSheet.create({
   cardAuth: { backgroundColor: '#ffffff', padding: 25, borderRadius: 12, elevation: 4 },
   headerAuth: { fontSize: 16, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
   input: { backgroundColor: '#f9f9f9', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 12 },
+  inputSearch: { backgroundColor: '#ffffff', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', marginBottom: 12, fontSize: 14 },
   
+  filterContainer: { flexDirection: 'row', marginBottom: 15, maxHeight: 40 },
+  filterChip: { backgroundColor: '#e0e0e0', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, marginRight: 8, justifyContent: 'center', height: 32 },
+  filterChipActive: { backgroundColor: '#2e7d32' },
+  filterChipText: { color: '#333', fontSize: 12, fontWeight: '600' },
+  filterChipTextActive: { color: '#fff', fontWeight: 'bold' },
+
   btnCoral: { backgroundColor: '#ff6b6b', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 5 },
   btnGreen: { backgroundColor: '#2e7d32', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 5 },
   btnCoralSmall: { backgroundColor: '#ff6b6b', padding: 10, borderRadius: 6, alignSelf: 'flex-start', marginTop: 12 },

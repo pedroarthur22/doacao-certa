@@ -11,19 +11,31 @@ app.use(cors());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'segredo_super_secreto_doacao';
 
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'admin',
-  database: 'doacao_certa'
+// Pool de conexões preparado para Nuvem e Local
+const db = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'admin',
+  database: process.env.DB_NAME || 'doacao_certa',
+  port: process.env.DB_PORT || 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-db.connect((err) => {
+// Teste inicial de conexão com o banco
+db.getConnection((err, connection) => {
   if (err) {
     console.error('Erro ao conectar ao MySQL:', err);
     return;
   }
   console.log('Conectado à base de dados MySQL com sucesso!');
+  connection.release();
+});
+
+// ================= ROTA DE VERIFICAÇÃO (HEALTH CHECK) =================
+app.get('/', (req, res) => {
+  res.json({ status: 'API Doação Certa online e operacional!' });
 });
 
 // ================= AUTENTICAÇÃO =================
@@ -31,6 +43,7 @@ app.post('/register', async (req, res) => {
   const { nome, email, senha, tipo } = req.body;
   try {
     db.query('SELECT * FROM usuarios WHERE email = ?', [email], async (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
       if (results.length > 0) return res.status(400).json({ error: 'E-mail já cadastrado.' });
 
       const salt = await bcrypt.genSalt(10);
@@ -95,9 +108,13 @@ const verificarAdmin = (req, res, next) => {
 // ================= DASHBOARD E ESTATÍSTICAS (ADMIN) =================
 app.get('/admin/stats', verificarToken, verificarAdmin, (req, res) => {
   db.query('SELECT COUNT(*) as total FROM usuarios', (err, rUsers) => {
+    if (err) return res.status(500).json({ error: err.message });
     db.query('SELECT COUNT(*) as total FROM itens_doacao', (err, rItens) => {
+      if (err) return res.status(500).json({ error: err.message });
       db.query("SELECT COUNT(*) as total FROM itens_doacao WHERE status = 'disponivel'", (err, rDisp) => {
+        if (err) return res.status(500).json({ error: err.message });
         db.query("SELECT COUNT(*) as total FROM itens_doacao WHERE status = 'pendente'", (err, rPend) => {
+          if (err) return res.status(500).json({ error: err.message });
           res.json({
             usuarios: rUsers[0]?.total || 0,
             totalItens: rItens[0]?.total || 0,
@@ -162,5 +179,5 @@ app.delete('/itens/:id', verificarToken, verificarAdmin, (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor profissional a correr na porta ${PORT}`);
+  console.log(`Servidor a correr na porta ${PORT}`);
 });

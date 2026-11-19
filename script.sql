@@ -1,0 +1,24 @@
+CREATE DATABASE IF NOT EXISTS doacao_certa;
+USE doacao_certa;
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nome VARCHAR(100) NOT NULL,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  senha VARCHAR(255) NOT NULL,
+  tipo ENUM('comum', 'admin') DEFAULT 'comum',
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS itens_doacao (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  titulo VARCHAR(150) NOT NULL,
+  descricao TEXT NOT NULL,
+  tamanho VARCHAR(20) NOT NULL,
+  local_recolha VARCHAR(150) NOT NULL,
+  categoria VARCHAR(50) DEFAULT 'Geral',
+  estado_conservacao VARCHAR(50) DEFAULT 'Bom',
+  foto_url VARCHAR(255) NULL,
+  status VARCHAR(30) DEFAULT 'pendente',
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
