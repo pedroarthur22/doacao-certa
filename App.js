@@ -7,7 +7,7 @@ export default function App() {
   const [token, setToken] = useState(null);
   const [rotaAuth, setRotaAuth] = useState('login');
   const [abaAtiva, setAbaAtiva] = useState('inicio');
-  
+
   // Auth states
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
@@ -43,6 +43,13 @@ export default function App() {
     }
   };
 
+  const normalizarListaItens = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.itens)) return payload.itens;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  };
+
   const handleLogin = async () => {
     try {
       const response = await fetch(`${API_URL}/login`, {
@@ -54,9 +61,9 @@ export default function App() {
       if (response.ok) {
         setToken(data.token);
         setUsuarioLogado(data.usuario);
-        mostrarAviso('Bem-vindo!', `Olá, ${data.usuario.nome} (${data.usuario.tipo})`);
+        mostrarAviso('Bem-vindo!', `Olá, ${data.usuario?.nome || ''} (${data.usuario?.tipo || 'comum'})`);
         buscarItens();
-        if (data.usuario.tipo === 'admin') buscarStats(data.token);
+        if (data.usuario?.tipo === 'admin') buscarStats(data.token);
       } else {
         mostrarAviso('Erro', data.error || 'Credenciais inválidas');
       }
@@ -90,9 +97,14 @@ export default function App() {
     try {
       const response = await fetch(`${API_URL}/itens`);
       const data = await response.json();
-      setItens(data);
+      if (!response.ok) {
+        setItens([]);
+        return;
+      }
+      setItens(normalizarListaItens(data));
     } catch (error) {
       console.error('Erro ao buscar itens:', error);
+      setItens([]);
     }
   };
 
@@ -102,7 +114,14 @@ export default function App() {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       const data = await response.json();
-      if (response.ok) setStats(data);
+      if (response.ok && data) {
+        setStats({
+          usuarios: Number(data.usuarios) || 0,
+          totalItens: Number(data.totalItens) || 0,
+          disponiveis: Number(data.disponiveis) || 0,
+          pendentes: Number(data.pendentes) || 0,
+        });
+      }
     } catch (error) {
       console.error('Erro ao buscar estatísticas:', error);
     }
@@ -116,7 +135,7 @@ export default function App() {
     try {
       const response = await fetch(`${API_URL}/itens`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -124,7 +143,7 @@ export default function App() {
       });
       const data = await response.json();
       if (response.ok) {
-        mostrarAviso('Sucesso', data.message);
+        mostrarAviso('Sucesso', data.message || 'Doação cadastrada com sucesso!');
         setTitulo(''); setDescricao(''); setTamanho(''); setLocalRecolha('');
         setAbaAtiva('disponiveis');
         buscarItens();
@@ -144,7 +163,7 @@ export default function App() {
     try {
       const response = await fetch(`${API_URL}/itens/${itemSelecionado.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -168,7 +187,7 @@ export default function App() {
     try {
       const response = await fetch(`${API_URL}/itens/${id}/status`, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -189,9 +208,9 @@ export default function App() {
     try {
       const response = await fetch(`${API_URL}/itens/${id}`, {
         method: 'DELETE',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         }
       });
       const data = await response.json();
@@ -226,25 +245,33 @@ export default function App() {
 
   const abrirDetalhesItem = (item) => {
     setItemSelecionado(item);
-    setTitulo(item.titulo);
-    setDescricao(item.descricao);
-    setTamanho(item.tamanho);
-    setLocalRecolha(item.local_recolha);
+    setTitulo(item.titulo || '');
+    setDescricao(item.descricao || '');
+    setTamanho(item.tamanho || '');
+    setLocalRecolha(item.local_recolha || '');
     setCategoria(item.categoria || 'Vestuário');
     setEstadoConservacao(item.estado_conservacao || 'Bom');
     setModoEdicao(false);
     setModalVisivel(true);
   };
 
+  const listaItensSegura = Array.isArray(itens) ? itens : [];
+  const pesquisaNormalizada = (termoPesquisa || '').toLowerCase();
+
   // Filtragem inteligente de itens para a aba de Doações
-  const itensFiltrados = itens.filter(item => {
-    const matchTermo = item.titulo.toLowerCase().includes(termoPesquisa.toLowerCase()) ||
-                      item.descricao.toLowerCase().includes(termoPesquisa.toLowerCase());
-    const matchCategoria = categoriaSelecionada === 'Todas' || item.categoria === categoriaSelecionada;
+  const itensFiltrados = listaItensSegura.filter((item) => {
+    const tituloItem = (item?.titulo || '').toLowerCase();
+    const descItem = (item?.descricao || '').toLowerCase();
+    const catItem = item?.categoria || 'Geral';
+
+    const matchTermo = tituloItem.includes(pesquisaNormalizada) || descItem.includes(pesquisaNormalizada);
+    const matchCategoria = categoriaSelecionada === 'Todas' || catItem === categoriaSelecionada;
     return matchTermo && matchCategoria;
   });
 
-  const categoriasDisponiveis = ['Todas', ...new Set(itens.map(i => i.categoria || 'Geral'))];
+  const categoriasDisponiveis = ['Todas', ...new Set(listaItensSegura.map((i) => i?.categoria || 'Geral'))];
+  const destaquesDisponiveis = listaItensSegura.filter((i) => i?.status === 'disponivel').slice(0, 3);
+  const itensPendentes = listaItensSegura.filter((i) => i?.status === 'pendente');
 
   useEffect(() => { buscarItens(); }, []);
 
@@ -313,7 +340,7 @@ export default function App() {
       </View>
 
       <ScrollView contentContainerStyle={styles.mainContent}>
-        
+
         {abaAtiva === 'inicio' && (
           <View>
             <View style={styles.welcomeCard}>
@@ -325,9 +352,9 @@ export default function App() {
             </View>
 
             <Text style={styles.sectionTitle}>Destaques Disponíveis (Toque para Detalhes)</Text>
-            {itens.filter(i => i.status === 'disponivel').slice(0, 3).map(item => (
+            {destaquesDisponiveis.map((item) => (
               <TouchableOpacity key={item.id} style={styles.cardItem} onPress={() => abrirDetalhesItem(item)}>
-                <View style={styles.badgeCategoria}><Text style={styles.badgeText}>{item.categoria}</Text></View>
+                <View style={styles.badgeCategoria}><Text style={styles.badgeText}>{item.categoria || 'Geral'}</Text></View>
                 <Text style={styles.cardTitle}>{item.titulo}</Text>
                 <Text style={styles.cardText} numberOfLines={2}>{item.descricao}</Text>
                 <Text style={styles.cardInfo}>Tamanho: {item.tamanho} | Retirada: {item.local_recolha}</Text>
@@ -339,11 +366,11 @@ export default function App() {
         {abaAtiva === 'disponiveis' && (
           <View>
             <Text style={styles.sectionTitle}>Catálogo de Doações</Text>
-            
+
             {/* Barra de Pesquisa */}
-            <TextInput 
-              style={styles.inputSearch} 
-              placeholder="🔍 Pesquisar por título ou descrição..." 
+            <TextInput
+              style={styles.inputSearch}
+              placeholder="🔍 Pesquisar por título ou descrição..."
               value={termoPesquisa}
               onChangeText={setTermoPesquisa}
             />
@@ -351,8 +378,8 @@ export default function App() {
             {/* Filtros por Categoria */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
               {categoriasDisponiveis.map((cat, index) => (
-                <TouchableOpacity 
-                  key={index} 
+                <TouchableOpacity
+                  key={index}
                   style={[styles.filterChip, categoriaSelecionada === cat && styles.filterChipActive]}
                   onPress={() => setCategoriaSelecionada(cat)}
                 >
@@ -365,12 +392,12 @@ export default function App() {
             {itensFiltrados.length === 0 ? (
               <Text style={styles.emptyText}>Nenhum item encontrado com esses critérios.</Text>
             ) : (
-              itensFiltrados.map(item => (
+              itensFiltrados.map((item) => (
                 <TouchableOpacity key={item.id} style={styles.cardItem} onPress={() => abrirDetalhesItem(item)}>
                   <View style={styles.rowBetween}>
                     <View style={styles.badgeCategoria}><Text style={styles.badgeText}>{item.categoria || 'Geral'}</Text></View>
                     <Text style={[styles.statusBadge, item.status === 'disponivel' ? styles.statusDisp : styles.statusPend]}>
-                      Status: {item.status.toUpperCase()}
+                      Status: {(item.status || 'pendente').toUpperCase()}
                     </Text>
                   </View>
                   <Text style={styles.cardTitle}>{item.titulo}</Text>
@@ -391,7 +418,7 @@ export default function App() {
             <TextInput style={styles.input} placeholder="Tamanho (ex: P, M, G, 42)" value={tamanho} onChangeText={setTamanho} />
             <TextInput style={styles.input} placeholder="Estado de Conservação (ex: Novo, Ótimo, Bom)" value={estadoConservacao} onChangeText={setEstadoConservacao} />
             <TextInput style={styles.input} placeholder="Local de Retirada (ex: Bairro Centro, Rua X)" value={localRecolha} onChangeText={setLocalRecolha} />
-            
+
             <TouchableOpacity style={styles.btnGreen} onPress={handleCadastrarItem}>
               <Text style={styles.btnText}>Enviar Doação para Análise</Text>
             </TouchableOpacity>
@@ -401,34 +428,34 @@ export default function App() {
         {abaAtiva === 'admin' && usuarioLogado?.tipo === 'admin' && (
           <View>
             <Text style={styles.sectionTitle}>Painel de Gestão (Admin)</Text>
-            
+
             <View style={styles.statsGrid}>
-              <View style={[styles.statBox, {backgroundColor: '#e3f2fd'}]}>
+              <View style={[styles.statBox, { backgroundColor: '#e3f2fd' }]}>
                 <Text style={styles.statNumber}>{stats.usuarios}</Text>
                 <Text style={styles.statLabel}>Utilizadores</Text>
               </View>
-              <View style={[styles.statBox, {backgroundColor: '#e8f5e9'}]}>
+              <View style={[styles.statBox, { backgroundColor: '#e8f5e9' }]}>
                 <Text style={styles.statNumber}>{stats.totalItens}</Text>
                 <Text style={styles.statLabel}>Total Doações</Text>
               </View>
-              <View style={[styles.statBox, {backgroundColor: '#fff8e1'}]}>
+              <View style={[styles.statBox, { backgroundColor: '#fff8e1' }]}>
                 <Text style={styles.statNumber}>{stats.pendentes}</Text>
                 <Text style={styles.statLabel}>Pendentes</Text>
               </View>
-              <View style={[styles.statBox, {backgroundColor: '#ffebee'}]}>
+              <View style={[styles.statBox, { backgroundColor: '#ffebee' }]}>
                 <Text style={styles.statNumber}>{stats.disponiveis}</Text>
                 <Text style={styles.statLabel}>Disponíveis</Text>
               </View>
             </View>
 
             <Text style={styles.subSectionTitle}>Moderação de Doações Pendentes (Toque para Analisar)</Text>
-            {itens.filter(i => i.status === 'pendente').length === 0 ? (
+            {itensPendentes.length === 0 ? (
               <Text style={styles.emptyText}>Nenhuma doação aguardando aprovação.</Text>
             ) : (
-              itens.filter(i => i.status === 'pendente').map(item => (
+              itensPendentes.map((item) => (
                 <TouchableOpacity key={item.id} style={styles.cardItem} onPress={() => abrirDetalhesItem(item)}>
                   <View style={styles.rowBetween}>
-                    <View style={styles.badgeCategoria}><Text style={styles.badgeText}>{item.categoria}</Text></View>
+                    <View style={styles.badgeCategoria}><Text style={styles.badgeText}>{item.categoria || 'Geral'}</Text></View>
                     <Text style={styles.statusPend}>AGUARDANDO APROVAÇÃO</Text>
                   </View>
                   <Text style={styles.cardTitle}>{item.titulo}</Text>
@@ -475,14 +502,14 @@ export default function App() {
                 ) : (
                   <>
                     <View style={styles.rowBetween}>
-                      <View style={styles.badgeCategoria}><Text style={styles.badgeText}>{itemSelecionado.categoria}</Text></View>
+                      <View style={styles.badgeCategoria}><Text style={styles.badgeText}>{itemSelecionado.categoria || 'Geral'}</Text></View>
                       <Text style={[styles.statusBadge, itemSelecionado.status === 'disponivel' ? styles.statusDisp : styles.statusPend]}>
-                        {itemSelecionado.status.toUpperCase()}
+                        {(itemSelecionado.status || 'pendente').toUpperCase()}
                       </Text>
                     </View>
 
                     <Text style={styles.modalTitle}>{itemSelecionado.titulo}</Text>
-                    
+
                     <View style={styles.modalBodyBox}>
                       <Text style={styles.modalLabel}>Descrição Completa:</Text>
                       <Text style={styles.modalTextValue}>{itemSelecionado.descricao}</Text>
@@ -537,7 +564,7 @@ const styles = StyleSheet.create({
   headerAuth: { fontSize: 16, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
   input: { backgroundColor: '#f9f9f9', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 12 },
   inputSearch: { backgroundColor: '#ffffff', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', marginBottom: 12, fontSize: 14 },
-  
+
   filterContainer: { flexDirection: 'row', marginBottom: 15, maxHeight: 40 },
   filterChip: { backgroundColor: '#e0e0e0', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, marginRight: 8, justifyContent: 'center', height: 32 },
   filterChipActive: { backgroundColor: '#2e7d32' },
@@ -569,10 +596,10 @@ const styles = StyleSheet.create({
   welcomeCard: { backgroundColor: '#ffffff', padding: 20, borderRadius: 12, marginBottom: 20, elevation: 2, borderLeftWidth: 5, borderLeftColor: '#2e7d32' },
   welcomeTitle: { fontSize: 20, fontWeight: 'bold', color: '#2e7d32', marginBottom: 8 },
   welcomeDesc: { fontSize: 14, color: '#555', lineHeight: 20 },
-  
+
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15, marginTop: 10 },
   subSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#444', marginBottom: 10, marginTop: 20 },
-  
+
   cardItem: { backgroundColor: '#ffffff', padding: 15, borderRadius: 10, marginBottom: 12, elevation: 2 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   badgeCategoria: { backgroundColor: '#e3f2fd', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4 },
@@ -585,7 +612,7 @@ const styles = StyleSheet.create({
   cardInfo: { fontSize: 12, color: '#777' },
 
   formCard: { backgroundColor: '#ffffff', padding: 20, borderRadius: 12, elevation: 2 },
-  
+
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 15 },
   statBox: { width: '48%', padding: 15, borderRadius: 8, alignItems: 'center', marginBottom: 10, elevation: 1 },
   statNumber: { fontSize: 22, fontWeight: 'bold', color: '#333' },
