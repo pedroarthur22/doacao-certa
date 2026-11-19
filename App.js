@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Alert, ScrollView, Modal, Platform } from 'react-native';
 
-const API_URL = 'https://doacao-certa-production.up.railway.app';[cite: 10]
+const API_URL = 'https://doacao-certa-production.up.railway.app';
 
 export default function App() {
   const [token, setToken] = useState(null);
