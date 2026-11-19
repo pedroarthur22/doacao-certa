@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Alert, ScrollView, Modal, Platform } from 'react-native';
 
-// ⚠️ SUBSTITUA PELO LINK DA SUA API NA NUVEM (ex: 'https://doacaocerta.up.railway.app') ANTES DE GERAR O APK
-const API_URL = 'http://localhost:3000';
+const API_URL = 'https://doacao-certa-production.up.railway.app';[cite: 10]
 
 export default function App() {
   const [token, setToken] = useState(null);
